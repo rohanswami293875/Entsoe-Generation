@@ -10,50 +10,45 @@ from difflib import get_close_matches
 API_KEY = '08876cd7-1363-4f9c-b260-f0dd5710f825'
 client = EntsoePandasClient(api_key=API_KEY)
 
-# Expanded country name to ENTSO-E code mapping
+# Country name to ENTSO-E code mapping
 country_code_map = {
-    'france': 'FR', 'germany': 'DE', 'italy': 'IT', 'spain': 'ES', 'sweden': 'SE',
-    'denmark': 'DK', 'belgium': 'BE', 'netherlands': 'NL', 'austria': 'AT', 'poland': 'PL',
-    'czech': 'CZ', 'portugal': 'PT', 'finland': 'FI', 'norway': 'NO', 'switzerland': 'CH',
-    'ireland': 'IE', 'hungary': 'HU', 'slovakia': 'SK', 'slovenia': 'SI', 'greece': 'GR',
-    'romania': 'RO', 'bulgaria': 'BG', 'croatia': 'HR', 'estonia': 'EE', 'latvia': 'LV', 'lithuania': 'LT',
-    'luxembourg': 'LU', 'cyprus': 'CY', 'malta': 'MT'
+    'France': 'FR', 'Germany': 'DE', 'Italy': 'IT', 'Spain': 'ES', 'Sweden': 'SE',
+    'Denmark': 'DK', 'Belgium': 'BE', 'Netherlands': 'NL', 'Austria': 'AT', 'Poland': 'PL',
+    'Czech': 'CZ', 'Portugal': 'PT', 'Finland': 'FI', 'Norway': 'NO', 'Switzerland': 'CH',
+    'Ireland': 'IE', 'Hungary': 'HU', 'Slovakia': 'SK', 'Slovenia': 'SI', 'Greece': 'GR',
+    'Romania': 'RO', 'Bulgaria': 'BG', 'Croatia': 'HR', 'Estonia': 'EE', 'Latvia': 'LV', 'Lithuania': 'LT'
 }
 
-# Function to parse natural language query with fuzzy matching
+# Function to parse natural language query
 def parse_query(query):
-    query = query.lower()
-    country_match = re.search(r'for\s+([a-zA-Z]+)', query)
-    country_name = country_match.group(1) if country_match else None
-
-    # Fuzzy match country name
-    if country_name:
-        matched = get_close_matches(country_name, country_code_map.keys(), n=1, cutoff=0.6)
-        country_name = matched[0] if matched else None
-
-    # Extract dates
-    date_match = re.search(r'from\s+(\d{4}-\d{2}-\d{2})\s*(to|-)\s*(\d{4}-\d{2}-\d{2})', query)
-    if date_match:
-        start_date = date_match.group(1)
-        end_date = date_match.group(3)
+    # Extract all dates from the query
+    date_matches = re.findall(r'\d{4}-\d{2}-\d{2}', query)
+    if len(date_matches) >= 2:
+        start_date = date_matches[0]
+        end_date = date_matches[1]
     else:
-        # Try to find any two dates in the query
-        date_matches = re.findall(r'\d{4}-\d{2}-\d{2}', query)
-        if len(date_matches) >= 2:
-            start_date, end_date = date_matches[0], date_matches[1]
-        else:
-            start_date, end_date = None, None
+        start_date = None
+        end_date = None
+
+    # Fuzzy match for country name
+    words = re.findall(r'\b\w+\b', query)
+    country_name = None
+    for word in words:
+        matches = get_close_matches(word.capitalize(), country_code_map.keys(), n=1, cutoff=0.7)
+        if matches:
+            country_name = matches[0]
+            break
 
     return country_name, start_date, end_date
 
 # Streamlit UI
 st.title("ENTSO-E Generation Data Bot")
-query = st.text_input("Enter your query (e.g., 'Get hourly generation data for Germany from 2025-01-01 to 2025-03-31')")
+query = st.text_input("Enter your query (e.g., 'Germany 2025-01-01 2025-03-31')")
 
 if query:
     country_name, start_date_str, end_date_str = parse_query(query)
     if not country_name or not start_date_str or not end_date_str:
-        st.error("Could not parse query. Please use format like: 'Get hourly generation data for Germany from YYYY-MM-DD to YYYY-MM-DD'")
+        st.error("Could not parse query. Please include a recognizable country name and two valid dates (YYYY-MM-DD).")
     else:
         country_code = country_code_map.get(country_name)
         if not country_code:
@@ -99,6 +94,5 @@ if query:
                     )
             else:
                 st.warning("No data fetched for the given query.")
-
 
 
