@@ -6,8 +6,8 @@ from dateutil.relativedelta import relativedelta
 from entsoe import EntsoePandasClient
 from difflib import get_close_matches
 
-# Initialize ENTSO-E client with API key
-API_KEY = '08876cd7-1363-4f9c-b260-f0dd5710f825'
+# Load API key securely from Streamlit secrets
+API_KEY = st.secrets["API_KEY"]
 client = EntsoePandasClient(api_key=API_KEY)
 
 # Country name to ENTSO-E code mapping
@@ -42,17 +42,20 @@ def parse_query(query):
     return country_name, start_date, end_date
 
 # Streamlit UI
-st.title("ENTSO-E Generation Data Bot")
-query = st.text_input("Enter your query (e.g., 'Germany 2025-01-01 2025-03-31')")
+st.set_page_config(page_title="ENTSO-E Generation Data Bot", layout="centered")
+st.markdown("<h1 style='text-align: center; color: #2c3e50;'>🔌 ENTSO-E Generation Data Bot</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Enter a query like <code>Germany 2025-01-01 2025-03-31</code> or <code>Get data for Frnce between 2025-01-01 and 2025-02-01</code></p>", unsafe_allow_html=True)
+
+query = st.text_input("Your Query")
 
 if query:
     country_name, start_date_str, end_date_str = parse_query(query)
     if not country_name or not start_date_str or not end_date_str:
-        st.error("Could not parse query. Please include a recognizable country name and two valid dates (YYYY-MM-DD).")
+        st.error(" Could not parse query. Please include a recognizable country name and two valid dates (YYYY-MM-DD).")
     else:
         country_code = country_code_map.get(country_name)
         if not country_code:
-            st.error(f"Country '{country_name}' not recognized.")
+            st.error(f" Country '{country_name}' not recognized.")
         else:
             start_date = pd.Timestamp(start_date_str + ' 00:00', tz='UTC')
             end_date = pd.Timestamp(end_date_str + ' 23:59', tz='UTC')
@@ -60,7 +63,7 @@ if query:
             current_start = start_date
             zone_data = []
 
-            with st.spinner(f"Fetching data for {country_code} from {start_date.date()} to {end_date.date()}..."):
+            with st.spinner(f" Fetching data for {country_name} from {start_date.date()} to {end_date.date()}..."):
                 while current_start < end_date:
                     current_end = min(current_start + relativedelta(months=1), end_date)
                     try:
@@ -73,13 +76,14 @@ if query:
                         df_part.index = df_part.index.tz_convert(None)
                         zone_data.append(df_part)
                     except Exception as e:
-                        st.warning(f"Error fetching data from {current_start} to {current_end}: {e}")
+                        st.warning(f" Error fetching data from {current_start} to {current_end}: {e}")
                     current_start = current_end
 
             if zone_data:
                 df_full = pd.concat(zone_data)
                 df_hourly = df_full.resample('h').mean()
-                st.subheader("Data Preview")
+                st.success(" Data fetched successfully!")
+                st.subheader(" Data Preview")
                 st.dataframe(df_hourly.head(10))
 
                 output_file = f"{country_code}_generation_{start_date.date()}_to_{end_date.date()}.xlsx"
@@ -87,12 +91,12 @@ if query:
 
                 with open(output_file, "rb") as f:
                     st.download_button(
-                        label="Download Excel File",
+                        label=" Download Excel File",
                         data=f,
                         file_name=output_file,
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
             else:
-                st.warning("No data fetched for the given query.")
+                st.warning(" No data fetched for the given query.")
 
 
