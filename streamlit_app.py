@@ -4,28 +4,45 @@ import re
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from entsoe import EntsoePandasClient
+from difflib import get_close_matches
 
 # Initialize ENTSO-E client with API key
 API_KEY = '08876cd7-1363-4f9c-b260-f0dd5710f825'
 client = EntsoePandasClient(api_key=API_KEY)
 
-# Country name to ENTSO-E code mapping
+# Expanded country name to ENTSO-E code mapping
 country_code_map = {
-    'France': 'FR', 'Germany': 'DE', 'Italy': 'IT', 'Spain': 'ES', 'Sweden': 'SE',
-    'Denmark': 'DK', 'Belgium': 'BE', 'Netherlands': 'NL', 'Austria': 'AT', 'Poland': 'PL',
-    'Czech': 'CZ', 'Portugal': 'PT', 'Finland': 'FI', 'Norway': 'NO', 'Switzerland': 'CH',
-    'Ireland': 'IE', 'Hungary': 'HU', 'Slovakia': 'SK', 'Slovenia': 'SI', 'Greece': 'GR',
-    'Romania': 'RO', 'Bulgaria': 'BG', 'Croatia': 'HR', 'Estonia': 'EE', 'Latvia': 'LV', 'Lithuania': 'LT'
+    'france': 'FR', 'germany': 'DE', 'italy': 'IT', 'spain': 'ES', 'sweden': 'SE',
+    'denmark': 'DK', 'belgium': 'BE', 'netherlands': 'NL', 'austria': 'AT', 'poland': 'PL',
+    'czech': 'CZ', 'portugal': 'PT', 'finland': 'FI', 'norway': 'NO', 'switzerland': 'CH',
+    'ireland': 'IE', 'hungary': 'HU', 'slovakia': 'SK', 'slovenia': 'SI', 'greece': 'GR',
+    'romania': 'RO', 'bulgaria': 'BG', 'croatia': 'HR', 'estonia': 'EE', 'latvia': 'LV', 'lithuania': 'LT',
+    'luxembourg': 'LU', 'cyprus': 'CY', 'malta': 'MT'
 }
 
-# Function to parse natural language query
+# Function to parse natural language query with fuzzy matching
 def parse_query(query):
-    country_match = re.search(r'for\s+(\w+)', query)
+    query = query.lower()
+    country_match = re.search(r'for\s+([a-zA-Z]+)', query)
     country_name = country_match.group(1) if country_match else None
 
-    date_match = re.search(r'from\s+(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})', query)
-    start_date = date_match.group(1) if date_match else None
-    end_date = date_match.group(2) if date_match else None
+    # Fuzzy match country name
+    if country_name:
+        matched = get_close_matches(country_name, country_code_map.keys(), n=1, cutoff=0.6)
+        country_name = matched[0] if matched else None
+
+    # Extract dates
+    date_match = re.search(r'from\s+(\d{4}-\d{2}-\d{2})\s*(to|-)\s*(\d{4}-\d{2}-\d{2})', query)
+    if date_match:
+        start_date = date_match.group(1)
+        end_date = date_match.group(3)
+    else:
+        # Try to find any two dates in the query
+        date_matches = re.findall(r'\d{4}-\d{2}-\d{2}', query)
+        if len(date_matches) >= 2:
+            start_date, end_date = date_matches[0], date_matches[1]
+        else:
+            start_date, end_date = None, None
 
     return country_name, start_date, end_date
 
@@ -36,9 +53,9 @@ query = st.text_input("Enter your query (e.g., 'Get hourly generation data for G
 if query:
     country_name, start_date_str, end_date_str = parse_query(query)
     if not country_name or not start_date_str or not end_date_str:
-        st.error("Could not parse query. Please use format: 'Get hourly generation data for Germany from YYYY-MM-DD to YYYY-MM-DD'")
+        st.error("Could not parse query. Please use format like: 'Get hourly generation data for Germany from YYYY-MM-DD to YYYY-MM-DD'")
     else:
-        country_code = country_code_map.get(country_name.capitalize())
+        country_code = country_code_map.get(country_name)
         if not country_code:
             st.error(f"Country '{country_name}' not recognized.")
         else:
@@ -82,4 +99,6 @@ if query:
                     )
             else:
                 st.warning("No data fetched for the given query.")
+
+
 
