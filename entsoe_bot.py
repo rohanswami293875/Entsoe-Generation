@@ -56,7 +56,7 @@ while current_start < end_date:
 
 if zone_data:
     df_full = pd.concat(zone_data)
-    df_hourly = df_full.resample('H').mean()
+    df_hourly = df_full.resample('h').mean()
     output_file = f"{country_code}_generation_{start_date.date()}_to_{end_date.date()}.xlsx"
     df_hourly.to_excel(output_file)
     print(f"Data saved to {output_file}")
