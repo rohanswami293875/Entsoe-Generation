@@ -212,7 +212,7 @@ def fetch_zone_generation(zone_domain: str,
         return pd.DataFrame()
 
     full = full[~full.index.duplicated(keep="last")].sort_index()
-    hourly = full.resample("H").mean()
+    hourly = full.resample("h").mean()
     return hourly
 
 def excel_bytes(sheets: Dict[str, pd.DataFrame], meta: Dict[str, str]) -> bytes:
